@@ -827,13 +827,15 @@ include(CheckTrezor)
     message(STATUS "PIE executable manually enabled (bypassing broken CMake check)")
   endif()
 
-  # RELRO, NOW, noexecstack – diese Flags werden auf modernem Linux (GCC 13, Ubuntu/Debian) immer unterstützt
-  set(LD_SECURITY_FLAGS "${LD_SECURITY_FLAGS} -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack")
+  # ELF linker hardening flags (Linux/BSD toolchains). MinGW does not support -z.
+  if (NOT WIN32)
+    set(LD_SECURITY_FLAGS "${LD_SECURITY_FLAGS} -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack")
+  endif()
 
   # noexecheap ist optional und nicht überall verfügbar → weglassen, um Kompatibilität zu gewährleisten
   # (macht auf normalen Desktop-Systemen keinen großen Unterschied)
 
-  # Windows-spezifische Flags nur aktivieren, wenn auf Windows gebaut wird
+  # Windows-specific linker hardening flags
   if (WIN32)
     set(LD_SECURITY_FLAGS "${LD_SECURITY_FLAGS} -Wl,--dynamicbase -Wl,--nxcompat -Wl,--high-entropy-va")
   endif()
