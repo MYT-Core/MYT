@@ -1,0 +1,1 @@
+\\wsl.localhost\Ubuntu\home\max\projects\crypto\myt-base\myt\scripts\windows\MYTLauncherExe\publish\MYTLauncher.exe
