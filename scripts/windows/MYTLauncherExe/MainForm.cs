@@ -9,10 +9,13 @@ namespace MYTLauncher;
 public sealed class MainForm : Form
 {
     private readonly TextBox vpsHost = new() { Text = "87.106.240.3" };
-    private readonly TextBox p2pPort = new() { Text = "38080" };
-    private readonly TextBox rpcPort = new() { Text = "38081" };
+    private readonly TextBox vpsRpcPort = new() { Text = "38081" };
+    private readonly TextBox explorerUrl = new() { Text = "http://87.106.240.3:8081" };
     private readonly TextBox walletPath = new() { Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "myt", "walletA") };
     private readonly TextBox dataDir = new() { Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "myt", "local-node") };
+    private readonly TextBox publicDataDir = new() { Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "myt", "public-node") };
+    private readonly TextBox publicP2pPort = new() { Text = "38080" };
+    private readonly TextBox publicRpcPort = new() { Text = "38081" };
     private readonly TextBox miningThreads = new() { Text = "1" };
     private readonly TextBox logBox = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
 
@@ -26,7 +29,7 @@ public sealed class MainForm : Form
         MaximizeBox = false;
         MinimizeBox = true;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(760, 500);
+        ClientSize = new Size(760, 560);
 
         binDir = AppDomain.CurrentDomain.BaseDirectory;
         BuildUi();
@@ -37,48 +40,55 @@ public sealed class MainForm : Form
     {
         var info = new Label
         {
-            Text = "Simple launcher for MYT testnet. Wallet-only uses VPS. Mining needs local node.",
+            Text = "Simple MYT launcher: 1) Wallet (online node)  2) Mining mode (local node + wallet)  3) Public node.",
             AutoSize = false,
             Bounds = new Rectangle(16, 12, 728, 36)
         };
         Controls.Add(info);
 
-        var cfg = new GroupBox
+        var walletBox = new GroupBox
         {
-            Text = "Connection",
+            Text = "1) Wallet erstellen / öffnen (Online Node)",
             Bounds = new Rectangle(16, 52, 728, 150)
         };
-        Controls.Add(cfg);
+        Controls.Add(walletBox);
 
-        AddLabeledTextBox(cfg, "VPS Host/IP", vpsHost, 18);
-        AddLabeledTextBox(cfg, "VPS P2P Port", p2pPort, 48);
-        AddLabeledTextBox(cfg, "VPS RPC Port", rpcPort, 78);
-        AddLabeledTextBox(cfg, "Wallet Path", walletPath, 108);
+        AddLabeledTextBox(walletBox, "Online Node IP", vpsHost, 22, 16, 130);
+        AddLabeledTextBox(walletBox, "Online RPC Port", vpsRpcPort, 52, 16, 130);
+        AddLabeledTextBox(walletBox, "Wallet Path", walletPath, 82, 16, 130);
+        AddLabeledTextBox(walletBox, "Explorer URL", explorerUrl, 112, 16, 130);
+        var bWallet = MakeButton("Open Wallet (Online Node)", 520, 22, 190, (_, _) => OpenWalletRemote());
+        var bExplorer = MakeButton("Open Explorer", 520, 66, 190, (_, _) => OpenExplorer());
+        walletBox.Controls.AddRange([bWallet, bExplorer]);
 
-        var ops = new GroupBox
+        var miningBox = new GroupBox
         {
-            Text = "Actions",
-            Bounds = new Rectangle(16, 210, 728, 130)
+            Text = "2) Mining starten (lokaler Node + Wallet)",
+            Bounds = new Rectangle(16, 210, 728, 120)
         };
-        Controls.Add(ops);
+        Controls.Add(miningBox);
 
-        var b1 = MakeButton("Open Wallet (Remote VPS)", 16, 26, 220, (_, _) => OpenWalletRemote());
-        var b2 = MakeButton("Start Local Node", 252, 26, 220, (_, _) => StartLocalNode());
-        var b3 = MakeButton("Open Wallet (Local Node)", 488, 26, 220, (_, _) => OpenWalletLocal());
-        var b4 = MakeButton("Start Wallet RPC (Remote)", 16, 70, 220, (_, _) => StartWalletRpcRemote());
-        var b5 = MakeButton("Mining Hint", 252, 70, 220, (_, _) => ShowMiningHint());
-        ops.Controls.AddRange([b1, b2, b3, b4, b5]);
+        AddLabeledTextBox(miningBox, "Seed Node IP", vpsHost, 24, 16, 130);
+        AddLabeledTextBox(miningBox, "Local Node Data", dataDir, 54, 16, 130);
+        AddLabeledTextBox(miningBox, "Mining Threads", miningThreads, 84, 16, 130);
+        var bMiningMode = MakeButton("Start Mining Mode", 520, 24, 190, (_, _) => StartMiningMode());
+        var bMiningHint = MakeButton("Mining Help", 520, 68, 190, (_, _) => ShowMiningHint());
+        miningBox.Controls.AddRange([bMiningMode, bMiningHint]);
 
-        var local = new GroupBox
+        var publicBox = new GroupBox
         {
-            Text = "Local Node / Mining",
-            Bounds = new Rectangle(16, 346, 728, 68)
+            Text = "3) Run Public Node (advanced)",
+            Bounds = new Rectangle(16, 338, 728, 140)
         };
-        Controls.Add(local);
-        AddLabeledTextBox(local, "Local Data Dir", dataDir, 26);
-        AddLabeledTextBox(local, "Threads", miningThreads, 26, 520, 70);
+        Controls.Add(publicBox);
+        AddLabeledTextBox(publicBox, "Public Data Dir", publicDataDir, 24, 16, 130);
+        AddLabeledTextBox(publicBox, "Public P2P Port", publicP2pPort, 54, 16, 130);
+        AddLabeledTextBox(publicBox, "Public RPC Port", publicRpcPort, 84, 16, 130);
+        var bPublic = MakeButton("Start Public Node", 520, 24, 190, (_, _) => StartPublicNode());
+        var bPublicHelp = MakeButton("Ports Help", 520, 68, 190, (_, _) => ShowPublicNodeHint());
+        publicBox.Controls.AddRange([bPublic, bPublicHelp]);
 
-        logBox.Bounds = new Rectangle(16, 420, 728, 68);
+        logBox.Bounds = new Rectangle(16, 486, 728, 64);
         Controls.Add(logBox);
         Log("Launcher ready.");
     }
@@ -105,7 +115,7 @@ public sealed class MainForm : Form
     private void ValidateBinaries()
     {
         var missing = "";
-        foreach (var exe in new[] { "mytd.exe", "myt-wallet-cli.exe", "myt-wallet-rpc.exe" })
+        foreach (var exe in new[] { "mytd.exe", "myt-wallet-cli.exe" })
         {
             if (!File.Exists(Path.Combine(binDir, exe)))
                 missing += $"{exe}\n";
@@ -121,11 +131,11 @@ public sealed class MainForm : Form
     {
         if (!EnsureWalletDirectory())
             return;
-        var daemon = $"{vpsHost.Text.Trim()}:{rpcPort.Text.Trim()}";
+        var daemon = $"{vpsHost.Text.Trim()}:{vpsRpcPort.Text.Trim()}";
         var args = BuildWalletOpenOrCreateArgs(
             walletPath.Text.Trim(),
-            $"--testnet --daemon-address {daemon} --trusted-daemon");
-        StartCmd("MYT Wallet (Remote VPS)", "myt-wallet-cli.exe", args);
+            $"--testnet --daemon-address {daemon} --trusted-daemon --daemon-ssl enabled --daemon-ssl-allow-any-cert");
+        StartCmd("MYT Wallet (Online Node)", "myt-wallet-cli.exe", args);
     }
 
     private void OpenWalletLocal()
@@ -134,23 +144,14 @@ public sealed class MainForm : Form
             return;
         var args = BuildWalletOpenOrCreateArgs(
             walletPath.Text.Trim(),
-            "--testnet --daemon-address 127.0.0.1:38081");
+            "--testnet --daemon-address 127.0.0.1:38081 --trusted-daemon");
         StartCmd("MYT Wallet (Local Node)", "myt-wallet-cli.exe", args);
-    }
-
-    private void StartWalletRpcRemote()
-    {
-        if (!EnsureWalletDirectory())
-            return;
-        var daemon = $"{vpsHost.Text.Trim()}:{rpcPort.Text.Trim()}";
-        var args = $"--testnet --daemon-address {daemon} --wallet-file \"{walletPath.Text.Trim()}\" --rpc-bind-port 38083";
-        StartCmd("MYT Wallet RPC", "myt-wallet-rpc.exe", args);
     }
 
     private void StartLocalNode()
     {
         var host = vpsHost.Text.Trim();
-        var p2p = p2pPort.Text.Trim();
+        var p2p = "38080";
         var dd = dataDir.Text.Trim();
         Directory.CreateDirectory(dd);
         var args =
@@ -163,15 +164,87 @@ public sealed class MainForm : Form
         StartCmd("MYT Local Node", "mytd.exe", args);
     }
 
+    private void StartMiningMode()
+    {
+        StartLocalNode();
+        OpenWalletLocal();
+    }
+
+    private void StartPublicNode()
+    {
+        var dd = publicDataDir.Text.Trim();
+        var p2p = publicP2pPort.Text.Trim();
+        var rpc = publicRpcPort.Text.Trim();
+        if (string.IsNullOrWhiteSpace(dd) || string.IsNullOrWhiteSpace(p2p) || string.IsNullOrWhiteSpace(rpc))
+        {
+            MessageBox.Show("Set Public Data Dir, Public P2P Port and Public RPC Port.");
+            return;
+        }
+        Directory.CreateDirectory(dd);
+
+        var args =
+            $"--testnet --data-dir \"{dd}\" " +
+            $"--p2p-bind-ip 0.0.0.0 --p2p-bind-port {p2p} " +
+            $"--rpc-bind-ip 0.0.0.0 --rpc-bind-port {rpc} --confirm-external-bind " +
+            "--public-node --restricted-rpc --non-interactive " +
+            "--disable-dns-checkpoints --check-updates disabled " +
+            "--no-igd --out-peers 32 --in-peers 64 --log-level 1";
+        StartCmd("MYT Public Node", "mytd.exe", args);
+    }
+
     private void ShowMiningHint()
     {
         MessageBox.Show(
-            "Mining via remote restricted VPS node is blocked by design.\n\n" +
-            "Use local node first, then in wallet run:\n\n" +
+            "Mining uses your LOCAL node.\n\n" +
+            "Click 'Start Mining Mode', then in wallet run:\n\n" +
             $"start_mining {miningThreads.Text.Trim()}",
             "Mining hint",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
+    }
+
+    private void ShowPublicNodeHint()
+    {
+        MessageBox.Show(
+            "Public Node means your IP is visible to peers.\n\n" +
+            "Open these firewall/router ports:\n" +
+            $"- TCP {publicP2pPort.Text.Trim()} (P2P)\n" +
+            $"- TCP {publicRpcPort.Text.Trim()} (Restricted RPC)\n\n" +
+            "Use restricted RPC for safety.",
+            "Public Node ports",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+    }
+
+    private void OpenExplorer()
+    {
+        var url = explorerUrl.Text.Trim();
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            MessageBox.Show("Set Explorer URL first.");
+            return;
+        }
+
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            url = "http://" + url;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+            Log("Opened Explorer: " + url);
+        }
+        catch (Exception ex)
+        {
+            Log("Failed to open Explorer URL: " + ex.Message);
+            MessageBox.Show("Failed to open Explorer URL.");
+        }
     }
 
     private void StartCmd(string title, string exeName, string args)
