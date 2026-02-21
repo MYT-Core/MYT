@@ -8,6 +8,12 @@ namespace MYTLauncher;
 
 public sealed class MainForm : Form
 {
+    private const int GroupLeft = 16;
+    private const int GroupWidth = 728;
+    private const int ActionButtonX = 520;
+    private const int ActionButtonWidth = 190;
+    private const int InputGapToButtons = 12;
+
     private readonly TextBox vpsHost = new() { Text = "87.106.240.3" };
     private readonly TextBox vpsRpcPort = new() { Text = "38081" };
     private readonly TextBox explorerUrl = new() { Text = "http://87.106.240.3:8081" };
@@ -49,7 +55,7 @@ public sealed class MainForm : Form
         var walletBox = new GroupBox
         {
             Text = "1) Wallet erstellen / öffnen (Online Node)",
-            Bounds = new Rectangle(16, 52, 728, 150)
+            Bounds = new Rectangle(GroupLeft, 52, GroupWidth, 150)
         };
         Controls.Add(walletBox);
 
@@ -57,35 +63,35 @@ public sealed class MainForm : Form
         AddLabeledTextBox(walletBox, "Online RPC Port", vpsRpcPort, 52, 16, 130);
         AddLabeledTextBox(walletBox, "Wallet Path", walletPath, 82, 16, 130);
         AddLabeledTextBox(walletBox, "Explorer URL", explorerUrl, 112, 16, 130);
-        var bWallet = MakeButton("Open Wallet (Online Node)", 520, 22, 190, (_, _) => OpenWalletRemote());
-        var bExplorer = MakeButton("Open Explorer", 520, 66, 190, (_, _) => OpenExplorer());
+        var bWallet = MakeButton("Open Wallet (Online Node)", ActionButtonX, 22, ActionButtonWidth, (_, _) => OpenWalletRemote());
+        var bExplorer = MakeButton("Open Explorer", ActionButtonX, 66, ActionButtonWidth, (_, _) => OpenExplorer());
         walletBox.Controls.AddRange([bWallet, bExplorer]);
 
         var miningBox = new GroupBox
         {
             Text = "2) Mining starten (lokaler Node + Wallet)",
-            Bounds = new Rectangle(16, 210, 728, 120)
+            Bounds = new Rectangle(GroupLeft, 210, GroupWidth, 120)
         };
         Controls.Add(miningBox);
 
         AddLabeledTextBox(miningBox, "Seed Node IP", vpsHost, 24, 16, 130);
         AddLabeledTextBox(miningBox, "Local Node Data", dataDir, 54, 16, 130);
         AddLabeledTextBox(miningBox, "Mining Threads", miningThreads, 84, 16, 130);
-        var bMiningMode = MakeButton("Start Mining Mode", 520, 24, 190, (_, _) => StartMiningMode());
-        var bMiningHint = MakeButton("Mining Help", 520, 68, 190, (_, _) => ShowMiningHint());
+        var bMiningMode = MakeButton("Start Mining Mode", ActionButtonX, 24, ActionButtonWidth, (_, _) => StartMiningMode());
+        var bMiningHint = MakeButton("Mining Help", ActionButtonX, 68, ActionButtonWidth, (_, _) => ShowMiningHint());
         miningBox.Controls.AddRange([bMiningMode, bMiningHint]);
 
         var publicBox = new GroupBox
         {
             Text = "3) Run Public Node (advanced)",
-            Bounds = new Rectangle(16, 338, 728, 140)
+            Bounds = new Rectangle(GroupLeft, 338, GroupWidth, 140)
         };
         Controls.Add(publicBox);
         AddLabeledTextBox(publicBox, "Public Data Dir", publicDataDir, 24, 16, 130);
         AddLabeledTextBox(publicBox, "Public P2P Port", publicP2pPort, 54, 16, 130);
         AddLabeledTextBox(publicBox, "Public RPC Port", publicRpcPort, 84, 16, 130);
-        var bPublic = MakeButton("Start Public Node", 520, 24, 190, (_, _) => StartPublicNode());
-        var bPublicHelp = MakeButton("Ports Help", 520, 68, 190, (_, _) => ShowPublicNodeHint());
+        var bPublic = MakeButton("Start Public Node", ActionButtonX, 24, ActionButtonWidth, (_, _) => StartPublicNode());
+        var bPublicHelp = MakeButton("Ports Help", ActionButtonX, 68, ActionButtonWidth, (_, _) => ShowPublicNodeHint());
         publicBox.Controls.AddRange([bPublic, bPublicHelp]);
 
         logBox.Bounds = new Rectangle(16, 486, 728, 64);
@@ -100,7 +106,11 @@ public sealed class MainForm : Form
             Text = label,
             Bounds = new Rectangle(x, y + 3, width, 20)
         };
-        box.Bounds = new Rectangle(x + width + 8, y, 560 - (x - 16), 24);
+        var textX = x + width + 8;
+        var textWidth = ActionButtonX - InputGapToButtons - textX;
+        if (textWidth < 120)
+            textWidth = 120;
+        box.Bounds = new Rectangle(textX, y, textWidth, 24);
         parent.Controls.Add(l);
         parent.Controls.Add(box);
     }

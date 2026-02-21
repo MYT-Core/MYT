@@ -9764,18 +9764,25 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     }
 
     //paste real transaction to the random index
-    auto it_to_replace = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
-    {
-      return a.first == td.m_global_output_index;
-    });
-    THROW_WALLET_EXCEPTION_IF(it_to_replace == src.outputs.end(), error::wallet_internal_error,
-        "real output not found");
-
     tx_output_entry real_oe;
     real_oe.first = td.m_global_output_index;
     real_oe.second.dest = rct::pk2rct(td.get_public_key());
     real_oe.second.mask = rct::commit(td.amount(), td.m_mask);
-    *it_to_replace = real_oe;
+    auto it_to_replace = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
+    {
+      return a.first == td.m_global_output_index;
+    });
+    if (it_to_replace == src.outputs.end())
+    {
+      THROW_WALLET_EXCEPTION_IF(src.outputs.empty(), error::wallet_internal_error, "no outputs in source set");
+      // Keep ring size stable and force-include the real output.
+      src.outputs.back() = real_oe;
+      it_to_replace = std::prev(src.outputs.end());
+    }
+    else
+    {
+      *it_to_replace = real_oe;
+    }
     src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     src.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     src.real_output = it_to_replace - src.outputs.begin();
@@ -9989,18 +9996,25 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     ++i;
 
     //paste real transaction to the random index
-    auto it_to_replace = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
-    {
-      return a.first == td.m_global_output_index;
-    });
-    THROW_WALLET_EXCEPTION_IF(it_to_replace == src.outputs.end(), error::wallet_internal_error,
-        "real output not found");
-
     tx_output_entry real_oe;
     real_oe.first = td.m_global_output_index;
     real_oe.second.dest = rct::pk2rct(td.get_public_key());
     real_oe.second.mask = rct::commit(td.amount(), td.m_mask);
-    *it_to_replace = real_oe;
+    auto it_to_replace = std::find_if(src.outputs.begin(), src.outputs.end(), [&](const tx_output_entry& a)
+    {
+      return a.first == td.m_global_output_index;
+    });
+    if (it_to_replace == src.outputs.end())
+    {
+      THROW_WALLET_EXCEPTION_IF(src.outputs.empty(), error::wallet_internal_error, "no outputs in source set");
+      // Keep ring size stable and force-include the real output.
+      src.outputs.back() = real_oe;
+      it_to_replace = std::prev(src.outputs.end());
+    }
+    else
+    {
+      *it_to_replace = real_oe;
+    }
     src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     src.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     src.real_output = it_to_replace - src.outputs.begin();
