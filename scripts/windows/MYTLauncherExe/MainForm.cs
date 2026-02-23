@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net.Sockets;
 using System.Windows.Forms;
 
 namespace MYTLauncher;
@@ -15,6 +16,7 @@ public sealed class MainForm : Form
     private const int InputGapToButtons = 12;
 
     private readonly TextBox vpsHost = new() { Text = "87.106.240.3" };
+    private readonly TextBox seedNodeHost = new() { Text = "87.106.240.3" };
     private readonly TextBox vpsRpcPort = new() { Text = "38081" };
     private readonly TextBox explorerUrl = new() { Text = "http://87.106.240.3:8081" };
     private readonly TextBox walletPath = new() { Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "myt", "walletA") };
@@ -46,7 +48,7 @@ public sealed class MainForm : Form
     {
         var info = new Label
         {
-            Text = "Simple MYT launcher: 1) Wallet (online node)  2) Mining mode (local node + wallet)  3) Public node.",
+            Text = "Simple MYT launcher for beginners. Step 1: Wallet/Explorer. Step 2: Mining Mode (local node). Step 3: Optional public node.",
             AutoSize = false,
             Bounds = new Rectangle(16, 12, 728, 36)
         };
@@ -54,7 +56,7 @@ public sealed class MainForm : Form
 
         var walletBox = new GroupBox
         {
-            Text = "1) Wallet erstellen / öffnen (Online Node)",
+            Text = "1) Wallet + Explorer (online node, no mining)",
             Bounds = new Rectangle(GroupLeft, 52, GroupWidth, 150)
         };
         Controls.Add(walletBox);
@@ -63,35 +65,36 @@ public sealed class MainForm : Form
         AddLabeledTextBox(walletBox, "Online RPC Port", vpsRpcPort, 52, 16, 130);
         AddLabeledTextBox(walletBox, "Wallet Path", walletPath, 82, 16, 130);
         AddLabeledTextBox(walletBox, "Explorer URL", explorerUrl, 112, 16, 130);
-        var bWallet = MakeButton("Open Wallet (Online Node)", ActionButtonX, 22, ActionButtonWidth, (_, _) => OpenWalletRemote());
+        var bWallet = MakeButton("Open Wallet (Online)", ActionButtonX, 22, ActionButtonWidth, (_, _) => OpenWalletRemote());
         var bExplorer = MakeButton("Open Explorer", ActionButtonX, 66, ActionButtonWidth, (_, _) => OpenExplorer());
-        walletBox.Controls.AddRange([bWallet, bExplorer]);
+        var bCheckOnline = MakeButton("Check Online Node", ActionButtonX, 110, ActionButtonWidth, (_, _) => CheckOnlineNode());
+        walletBox.Controls.AddRange([bWallet, bExplorer, bCheckOnline]);
 
         var miningBox = new GroupBox
         {
-            Text = "2) Mining starten (lokaler Node + Wallet)",
-            Bounds = new Rectangle(GroupLeft, 210, GroupWidth, 120)
+            Text = "2) Mining Mode (local node + wallet)",
+            Bounds = new Rectangle(GroupLeft, 210, GroupWidth, 130)
         };
         Controls.Add(miningBox);
 
-        AddLabeledTextBox(miningBox, "Seed Node IP", vpsHost, 24, 16, 130);
+        AddLabeledTextBox(miningBox, "Seed Node IP", seedNodeHost, 24, 16, 130);
         AddLabeledTextBox(miningBox, "Local Node Data", dataDir, 54, 16, 130);
         AddLabeledTextBox(miningBox, "Mining Threads", miningThreads, 84, 16, 130);
         var bMiningMode = MakeButton("Start Mining Mode", ActionButtonX, 24, ActionButtonWidth, (_, _) => StartMiningMode());
-        var bMiningHint = MakeButton("Mining Help", ActionButtonX, 68, ActionButtonWidth, (_, _) => ShowMiningHint());
-        miningBox.Controls.AddRange([bMiningMode, bMiningHint]);
+        var bCopyMining = MakeButton("Copy Mining Command", ActionButtonX, 68, ActionButtonWidth, (_, _) => CopyMiningCommand());
+        miningBox.Controls.AddRange([bMiningMode, bCopyMining]);
 
         var publicBox = new GroupBox
         {
-            Text = "3) Run Public Node (advanced)",
-            Bounds = new Rectangle(GroupLeft, 338, GroupWidth, 140)
+            Text = "3) Public Node (optional, advanced)",
+            Bounds = new Rectangle(GroupLeft, 348, GroupWidth, 130)
         };
         Controls.Add(publicBox);
         AddLabeledTextBox(publicBox, "Public Data Dir", publicDataDir, 24, 16, 130);
         AddLabeledTextBox(publicBox, "Public P2P Port", publicP2pPort, 54, 16, 130);
         AddLabeledTextBox(publicBox, "Public RPC Port", publicRpcPort, 84, 16, 130);
         var bPublic = MakeButton("Start Public Node", ActionButtonX, 24, ActionButtonWidth, (_, _) => StartPublicNode());
-        var bPublicHelp = MakeButton("Ports Help", ActionButtonX, 68, ActionButtonWidth, (_, _) => ShowPublicNodeHint());
+        var bPublicHelp = MakeButton("Ports + Safety Help", ActionButtonX, 68, ActionButtonWidth, (_, _) => ShowPublicNodeHint());
         publicBox.Controls.AddRange([bPublic, bPublicHelp]);
 
         logBox.Bounds = new Rectangle(16, 486, 728, 64);
@@ -141,11 +144,34 @@ public sealed class MainForm : Form
     {
         if (!EnsureWalletDirectory())
             return;
-        var daemon = $"{vpsHost.Text.Trim()}:{vpsRpcPort.Text.Trim()}";
+
+        var host = vpsHost.Text.Trim();
+        var port = vpsRpcPort.Text.Trim();
+        if (!TryParsePort(port, out var portNum))
+        {
+            MessageBox.Show("Online RPC Port is invalid.", "Input error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (!CanConnectTcp(host, portNum, 2500, out var err))
+        {
+            Log("Online node check failed: " + err);
+            MessageBox.Show(
+                "Online node is not reachable.\n\n" +
+                $"Tried: {host}:{port}\n" +
+                "Check VPS daemon/firewall and try again.",
+                "Online node unreachable",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
+        var daemon = $"{host}:{port}";
         var args = BuildWalletOpenOrCreateArgs(
             walletPath.Text.Trim(),
             $"--testnet --daemon-address {daemon} --trusted-daemon --daemon-ssl enabled --daemon-ssl-allow-any-cert");
         StartCmd("MYT Wallet (Online Node)", "myt-wallet-cli.exe", args);
+        Log("Online wallet opened. Mining is disabled in this mode.");
     }
 
     private void OpenWalletLocal()
@@ -160,7 +186,7 @@ public sealed class MainForm : Form
 
     private void StartLocalNode()
     {
-        var host = vpsHost.Text.Trim();
+        var host = seedNodeHost.Text.Trim();
         var p2p = "38080";
         var dd = dataDir.Text.Trim();
         Directory.CreateDirectory(dd);
@@ -176,8 +202,25 @@ public sealed class MainForm : Form
 
     private void StartMiningMode()
     {
+        if (!TryGetMiningThreads(out var threads))
+        {
+            MessageBox.Show("Mining Threads must be a number between 1 and 256.", "Input error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         StartLocalNode();
         OpenWalletLocal();
+
+        var cmd = $"start_mining {threads}";
+        TryCopyToClipboard(cmd);
+        MessageBox.Show(
+            "Mining Mode started.\n\n" +
+            "In the wallet window run this command:\n" +
+            cmd + "\n\n" +
+            "(Command was copied to clipboard.)",
+            "Next step: start mining",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 
     private void StartPublicNode()
@@ -202,12 +245,20 @@ public sealed class MainForm : Form
         StartCmd("MYT Public Node", "mytd.exe", args);
     }
 
-    private void ShowMiningHint()
+    private void CopyMiningCommand()
     {
+        if (!TryGetMiningThreads(out var threads))
+        {
+            MessageBox.Show("Mining Threads must be a number between 1 and 256.", "Input error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var cmd = $"start_mining {threads}";
+        TryCopyToClipboard(cmd);
         MessageBox.Show(
             "Mining uses your LOCAL node.\n\n" +
-            "Click 'Start Mining Mode', then in wallet run:\n\n" +
-            $"start_mining {miningThreads.Text.Trim()}",
+            "After opening wallet in mining mode, run:\n\n" +
+            cmd,
             "Mining hint",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
@@ -255,6 +306,32 @@ public sealed class MainForm : Form
             Log("Failed to open Explorer URL: " + ex.Message);
             MessageBox.Show("Failed to open Explorer URL.");
         }
+    }
+
+    private void CheckOnlineNode()
+    {
+        var host = vpsHost.Text.Trim();
+        var port = vpsRpcPort.Text.Trim();
+        if (!TryParsePort(port, out var portNum))
+        {
+            MessageBox.Show("Online RPC Port is invalid.", "Input error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (CanConnectTcp(host, portNum, 2500, out _))
+        {
+            Log($"Online node reachable: {host}:{port}");
+            MessageBox.Show("Online node is reachable.", "Node check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        Log($"Online node NOT reachable: {host}:{port}");
+        MessageBox.Show(
+            $"Online node not reachable: {host}:{port}\n" +
+            "Check VPS daemon/firewall.",
+            "Node check",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
     }
 
     private void StartCmd(string title, string exeName, string args)
@@ -314,6 +391,52 @@ public sealed class MainForm : Form
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return false;
+        }
+    }
+
+    private static bool TryParsePort(string text, out int port)
+    {
+        return int.TryParse(text, out port) && port > 0 && port <= 65535;
+    }
+
+    private bool TryGetMiningThreads(out int threads)
+    {
+        return int.TryParse(miningThreads.Text.Trim(), out threads) && threads >= 1 && threads <= 256;
+    }
+
+    private static bool CanConnectTcp(string host, int port, int timeoutMs, out string error)
+    {
+        try
+        {
+            using var client = new TcpClient();
+            var ar = client.BeginConnect(host, port, null, null);
+            if (!ar.AsyncWaitHandle.WaitOne(timeoutMs))
+            {
+                error = "timeout";
+                return false;
+            }
+
+            client.EndConnect(ar);
+            error = "";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private void TryCopyToClipboard(string text)
+    {
+        try
+        {
+            Clipboard.SetText(text);
+            Log("Copied to clipboard: " + text);
+        }
+        catch
+        {
+            Log("Clipboard copy failed.");
         }
     }
 }
