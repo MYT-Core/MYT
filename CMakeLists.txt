@@ -399,7 +399,7 @@ endif()
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 
-option(PER_BLOCK_CHECKPOINT "Enable per-block checkpoint" ON)
+option(PER_BLOCK_CHECKPOINT "Enable per-block checkpoint" OFF)
 if(PER_BLOCK_CHECKPOINT)
   add_definitions("-DPER_BLOCK_CHECKPOINT")
 endif()
