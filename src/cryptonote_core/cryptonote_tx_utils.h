@@ -149,6 +149,7 @@ namespace cryptonote
       block& bl
     , std::string const & genesis_tx
     , uint32_t nonce
+    , uint64_t timestamp
     );
 
   class Blockchain;

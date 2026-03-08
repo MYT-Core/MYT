@@ -9734,6 +9734,34 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   if (outs.empty())
     get_outs(outs, selected_transfers, fake_outputs_count, false, valid_public_keys_cache); // may throw
 
+  const auto outputs_match_selected_transfers = [this, &outs, &selected_transfers]() -> bool
+  {
+    if (outs.size() != selected_transfers.size())
+      return false;
+    for (size_t n = 0; n < selected_transfers.size(); ++n)
+    {
+      const size_t idx = selected_transfers[n];
+      if (idx >= m_transfers.size() || outs[n].empty())
+        return false;
+      const transfer_details &td = m_transfers[idx];
+      const auto it = std::find_if(outs[n].begin(), outs[n].end(), [&td](const tools::wallet2::get_outs_entry &entry)
+      {
+        return std::get<0>(entry) == td.m_global_output_index && std::get<1>(entry) == td.get_public_key();
+      });
+      if (it == outs[n].end())
+        return false;
+    }
+    return true;
+  };
+  if (!outputs_match_selected_transfers())
+  {
+    MWARNING("Cached output set does not match selected transfers; refreshing ring members from daemon");
+    outs.clear();
+    get_outs(outs, selected_transfers, fake_outputs_count, false, valid_public_keys_cache); // may throw
+    THROW_WALLET_EXCEPTION_IF(!outputs_match_selected_transfers(), error::wallet_internal_error,
+      "Ring member retrieval failed: missing or incompatible real output");
+  }
+
   //prepare inputs
   LOG_PRINT_L2("preparing outputs");
   typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
@@ -9772,17 +9800,10 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     {
       return a.first == td.m_global_output_index;
     });
-    if (it_to_replace == src.outputs.end())
-    {
-      THROW_WALLET_EXCEPTION_IF(src.outputs.empty(), error::wallet_internal_error, "no outputs in source set");
-      // Keep ring size stable and force-include the real output.
-      src.outputs.back() = real_oe;
-      it_to_replace = std::prev(src.outputs.end());
-    }
-    else
-    {
-      *it_to_replace = real_oe;
-    }
+    THROW_WALLET_EXCEPTION_IF(src.outputs.empty(), error::wallet_internal_error, "no outputs in source set");
+    THROW_WALLET_EXCEPTION_IF(it_to_replace == src.outputs.end(), error::wallet_internal_error,
+      "Ring construction invariant violated: real output missing from source set");
+    *it_to_replace = real_oe;
     src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     src.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     src.real_output = it_to_replace - src.outputs.begin();
@@ -9966,6 +9987,34 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   if (outs.empty())
     get_outs(outs, selected_transfers, fake_outputs_count, all_rct, valid_public_keys_cache); // may throw
 
+  const auto outputs_match_selected_transfers = [this, &outs, &selected_transfers]() -> bool
+  {
+    if (outs.size() != selected_transfers.size())
+      return false;
+    for (size_t n = 0; n < selected_transfers.size(); ++n)
+    {
+      const size_t idx = selected_transfers[n];
+      if (idx >= m_transfers.size() || outs[n].empty())
+        return false;
+      const transfer_details &td = m_transfers[idx];
+      const auto it = std::find_if(outs[n].begin(), outs[n].end(), [&td](const tools::wallet2::get_outs_entry &entry)
+      {
+        return std::get<0>(entry) == td.m_global_output_index && std::get<1>(entry) == td.get_public_key();
+      });
+      if (it == outs[n].end())
+        return false;
+    }
+    return true;
+  };
+  if (!outputs_match_selected_transfers())
+  {
+    MWARNING("Cached output set does not match selected transfers; refreshing ring members from daemon");
+    outs.clear();
+    get_outs(outs, selected_transfers, fake_outputs_count, all_rct, valid_public_keys_cache); // may throw
+    THROW_WALLET_EXCEPTION_IF(!outputs_match_selected_transfers(), error::wallet_internal_error,
+      "Ring member retrieval failed: missing or incompatible real output");
+  }
+
   //prepare inputs
   LOG_PRINT_L2("preparing outputs");
   size_t i = 0, out_index = 0;
@@ -10004,17 +10053,9 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     {
       return a.first == td.m_global_output_index;
     });
-    if (it_to_replace == src.outputs.end())
-    {
-      THROW_WALLET_EXCEPTION_IF(src.outputs.empty(), error::wallet_internal_error, "no outputs in source set");
-      // Keep ring size stable and force-include the real output.
-      src.outputs.back() = real_oe;
-      it_to_replace = std::prev(src.outputs.end());
-    }
-    else
-    {
-      *it_to_replace = real_oe;
-    }
+    THROW_WALLET_EXCEPTION_IF(it_to_replace == src.outputs.end(), error::wallet_internal_error,
+      "Ring construction invariant violated: real output missing from source set");
+    *it_to_replace = real_oe;
     src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     src.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     src.real_output = it_to_replace - src.outputs.begin();
@@ -15177,7 +15218,12 @@ uint64_t wallet2::get_segregation_fork_height() const
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) const {
-  cryptonote::generate_genesis_block(b, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
+  cryptonote::generate_genesis_block(
+    b,
+    get_config(m_nettype).GENESIS_TX,
+    get_config(m_nettype).GENESIS_NONCE,
+    get_config(m_nettype).GENESIS_TIMESTAMP
+  );
 }
 //----------------------------------------------------------------------------------------------------
 mms::multisig_wallet_state wallet2::get_multisig_wallet_state() const

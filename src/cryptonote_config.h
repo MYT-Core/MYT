@@ -248,6 +248,7 @@ namespace config
   } }; // Bender's nightmare
   std::string const GENESIS_TX = "013c01ff000180e497d012023af0776276e765370d6f3480f95938daf0506985e7e631aa20e7b4a0fec8852f21013181d597a087d943ad9ad7609041bfaeadca099d1463ddb83a32d6d2d6ca21ce";
   uint32_t const GENESIS_NONCE = 0x4D595454;
+  uint64_t const GENESIS_TIMESTAMP = 1772928000; // 2026-03-08 00:00:00 UTC
 
   // Hash domain separators
   const char HASH_KEY_BULLETPROOF_EXPONENT[] = "bulletproof";
@@ -296,6 +297,7 @@ namespace config
  // Bender's daydream
     std::string const GENESIS_TX = "013c01ff000180e497d012023af0776276e765370d6f3480f95938daf0506985e7e631aa20e7b4a0fec8852f21013181d597a087d943ad9ad7609041bfaeadca099d1463ddb83a32d6d2d6ca21ce";
     uint32_t const GENESIS_NONCE = 0x4D595454;
+    uint64_t const GENESIS_TIMESTAMP = 0;
   }
 
   namespace stagenet
@@ -316,6 +318,7 @@ namespace config
  // Bender's daydream
     std::string const GENESIS_TX = "013c01ff000180e497d012023af0776276e765370d6f3480f95938daf0506985e7e631aa20e7b4a0fec8852f21013181d597a087d943ad9ad7609041bfaeadca099d1463ddb83a32d6d2d6ca21ce";
     uint32_t const GENESIS_NONCE = 0x4D595454;
+    uint64_t const GENESIS_TIMESTAMP = 0;
   }
 }
 
@@ -340,6 +343,7 @@ namespace cryptonote
     boost::uuids::uuid const NETWORK_ID;
     std::string const GENESIS_TX;
     uint32_t const GENESIS_NONCE;
+    uint64_t const GENESIS_TIMESTAMP;
   };
   inline const config_t& get_config(network_type nettype)
   {
@@ -352,7 +356,8 @@ namespace cryptonote
       ::config::ZMQ_RPC_DEFAULT_PORT,
       ::config::NETWORK_ID,
       ::config::GENESIS_TX,
-      ::config::GENESIS_NONCE
+      ::config::GENESIS_NONCE,
+      ::config::GENESIS_TIMESTAMP
     };
     static const config_t testnet = {
       ::config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -363,7 +368,8 @@ namespace cryptonote
       ::config::testnet::ZMQ_RPC_DEFAULT_PORT,
       ::config::testnet::NETWORK_ID,
       ::config::testnet::GENESIS_TX,
-      ::config::testnet::GENESIS_NONCE
+      ::config::testnet::GENESIS_NONCE,
+      ::config::testnet::GENESIS_TIMESTAMP
     };
     static const config_t stagenet = {
       ::config::stagenet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -374,7 +380,8 @@ namespace cryptonote
       ::config::stagenet::ZMQ_RPC_DEFAULT_PORT,
       ::config::stagenet::NETWORK_ID,
       ::config::stagenet::GENESIS_TX,
-      ::config::stagenet::GENESIS_NONCE
+      ::config::stagenet::GENESIS_NONCE,
+      ::config::stagenet::GENESIS_TIMESTAMP
     };
     switch (nettype)
     {
