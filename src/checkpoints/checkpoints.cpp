@@ -218,6 +218,13 @@ namespace cryptonote
       ADD_CHECKPOINT2(550000,  "409f68cddd8e74b37469b41c1e61250d81c5776b42264f416d5d27c4626383ed", "0x5f3d4d03e");
       return true;
     }
+    if (nettype == MAINNET)
+    {
+      // Custom MYT mainnet: keep only genesis checkpoint.
+      // Legacy Monero checkpoint list below would reject freshly mined block 1.
+      ADD_CHECKPOINT2(0, "faa1d2461b7290cbcf957201ea735957cf17605266b3d3cbda4da79691642b9a", "0x1");
+      return true;
+    }
     ADD_CHECKPOINT2(1,     "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148", "0x2");
     ADD_CHECKPOINT2(10,    "c0e3b387e47042f72d8ccdca88071ff96bff1ac7cde09ae113dbb7ad3fe92381", "0x2a974");
     ADD_CHECKPOINT2(100,   "ac3e11ca545e57c49fca2b4e8c48c03c23be047c43e471e1394528b1f9f80b2d", "0x35d14b");
