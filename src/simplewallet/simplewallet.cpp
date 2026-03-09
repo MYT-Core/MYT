@@ -52,6 +52,7 @@
 #include <sstream>
 #include <fstream>
 #include <string_view>
+#include <chrono>
 #include <ctype.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
@@ -3182,6 +3183,7 @@ simple_wallet::simple_wallet()
   , m_last_activity_time(time(NULL))
   , m_locked(false)
   , m_in_command(false)
+  , m_background_password_notice_shown(false)
 {
   m_cmd_binder.set_handler("start_mining",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::start_mining, _1),
@@ -5638,8 +5640,15 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
   // can't ask for password from a background thread
   if (!m_in_manual_refresh.load(std::memory_order_relaxed))
   {
-    message_writer(console_color_red, false) << boost::format(tr("Password needed (%s) - use the refresh command")) % reason;
-    m_cmd_binder.print_prompt();
+    bool expected = false;
+    if (m_background_password_notice_shown.compare_exchange_strong(expected, true, std::memory_order_relaxed))
+    {
+      message_writer(console_color_yellow, false) << tr("Wallet is out of sync and has been locked. Use refresh to unlock.");
+      if (reason && *reason)
+        message_writer(console_color_red, false) << boost::format(tr("Password needed (%s) - use the refresh command")) % reason;
+      m_cmd_binder.print_prompt();
+    }
+    m_locked = true;
     return boost::none;
   }
 
@@ -6404,6 +6413,7 @@ void simple_wallet::check_for_inactivity_lock(bool user)
     m_last_activity_time = time(NULL);
     m_in_command = false;
     m_locked = false;
+    m_background_password_notice_shown = false;
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -6445,7 +6455,9 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
   priority = m_wallet->adjust_priority(priority);
 
   const size_t min_ring_size = m_wallet->get_min_ring_size();
-  size_t fake_outs_count = min_ring_size - 1;
+  // Some early-network rules can report min ring size 0.
+  // Guard against size_t underflow here.
+  size_t fake_outs_count = min_ring_size > 0 ? min_ring_size - 1 : 0;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -7009,7 +7021,10 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  const size_t min_ring_size = m_wallet->get_min_ring_size();
+  // Some early-network rules can report min ring size 0.
+  // Guard against size_t underflow here.
+  size_t fake_outs_count = min_ring_size > 0 ? min_ring_size - 1 : 0;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -7253,7 +7268,10 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  const size_t min_ring_size = m_wallet->get_min_ring_size();
+  // Some early-network rules can report min ring size 0.
+  // Guard against size_t underflow here.
+  size_t fake_outs_count = min_ring_size > 0 ? min_ring_size - 1 : 0;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
