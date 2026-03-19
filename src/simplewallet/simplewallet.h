@@ -452,6 +452,7 @@ namespace cryptonote
     std::atomic<time_t> m_last_activity_time;
     std::atomic<bool> m_locked;
     std::atomic<bool> m_in_command;
+    std::atomic<bool> m_background_password_notice_shown;
 
     template<uint64_t mini, uint64_t maxi> struct get_random_interval { public: uint64_t operator()() const { return crypto::rand_range(mini, maxi); } };
 

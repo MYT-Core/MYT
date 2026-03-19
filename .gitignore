@@ -123,3 +123,5 @@ __pycache__/
 build-release/
 build-tests/
 release/
+
+*:Zone.Identifier
