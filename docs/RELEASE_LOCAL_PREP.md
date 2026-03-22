@@ -2,10 +2,29 @@
 
 This guide prepares launch artifacts locally before any VPS is purchased.
 
+## Local Data-Dir Layout (Linux, under /home/max)
+
+Use explicit per-network data directories to avoid accidental cross-network reuse:
+
+- Mainnet node data: `$HOME/.myt/mainnet`
+- Testnet node data: `$HOME/.myt/testnet`
+- Mainnet wallet files: `$HOME/.myt/wallets/mainnet/`
+- Testnet wallet files: `$HOME/.myt/wallets/testnet/`
+
+Recommended startup examples:
+
+```bash
+# Mainnet
+./mytd --data-dir $HOME/.myt/mainnet
+
+# Testnet
+./mytd --testnet --data-dir $HOME/.myt/testnet
+```
+
 ## 1) Build release artifacts
 
 ```bash
-cd /home/max/projects/crypto/myt-base/myt
+cd $HOME/projects/crypto/myt-base/myt
 ./scripts/release/build_release.sh v1.0.0-testnet.1
 ```
 
@@ -16,7 +35,7 @@ Output:
 ## 2) Generate checksums
 
 ```bash
-cd /home/max/projects/crypto/myt-base/myt
+cd $HOME/projects/crypto/myt-base/myt
 ./scripts/release/make_checksums.sh ./release
 ```
 
@@ -28,14 +47,14 @@ Output:
 With default GPG key:
 
 ```bash
-cd /home/max/projects/crypto/myt-base/myt
+cd $HOME/projects/crypto/myt-base/myt
 ./scripts/release/sign_release.sh ./release
 ```
 
 With specific GPG key id:
 
 ```bash
-cd /home/max/projects/crypto/myt-base/myt
+cd $HOME/projects/crypto/myt-base/myt
 ./scripts/release/sign_release.sh ./release <YOUR_GPG_KEY_ID>
 ```
 
@@ -46,7 +65,7 @@ Output:
 ## 4) Verify locally before publishing
 
 ```bash
-cd /home/max/projects/crypto/myt-base/myt/release
+cd $HOME/projects/crypto/myt-base/myt/release
 sha256sum -c SHA256SUMS.txt
 ```
 
