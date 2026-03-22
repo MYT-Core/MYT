@@ -123,3 +123,6 @@ __pycache__/
 build-release/
 build-tests/
 release/
+build-win64-release/
+scripts/windows/MYTLauncherExe/obj/
+scripts/windows/MYTLauncherExe/bin/

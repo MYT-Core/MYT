@@ -735,9 +735,20 @@ namespace nodetool
   template<class t_payload_net_handler>
   std::set<std::string> node_server<t_payload_net_handler>::get_ip_seed_nodes() const
   {
-    // MYT intentionally ships with no hardcoded fallback seed nodes.
-    // Bootstrap peers must be configured explicitly (e.g. --seed-node or --add-priority-node).
-    return {};
+    // Fixed bootstrap nodes for MYT.
+    // Keep this list short and geographically diverse; operators can still override via --seed-node / --add-priority-node.
+    switch (m_nettype)
+    {
+      case cryptonote::MAINNET:
+      case cryptonote::TESTNET:
+        return {
+          "87.106.240.3",
+          "67.217.244.109"
+        };
+      case cryptonote::STAGENET:
+      default:
+        return {};
+    }
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>

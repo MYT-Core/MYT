@@ -117,28 +117,28 @@ const hardfork_t testnet_hard_forks[] = {
   // version 1 from the start of the blockchain
   { 1, 1, 0, 1341378000 },
 
-  // version 2 starts from block 624634, which is on or around the 23rd of November, 2015. Fork time finalised on 2015-11-20. No fork voting occurs for the v2 fork.
-  { 2, 624634, 0, 1445355000 },
-
-  // versions 3-5 were passed in rapid succession from September 18th, 2016
-  { 3, 800500, 0, 1472415034 },
-  { 4, 801219, 0, 1472415035 },
-  { 5, 802660, 0, 1472415036 + 86400*180 }, // add 5 months on testnet to shut the update warning up since there's a large gap to v6
-
-  { 6, 971400, 0, 1501709789 },
-  { 7, 1057027, 0, 1512211236 },
-  { 8, 1057058, 0, 1533211200 },
-  { 9, 1057778, 0, 1533297600 },
-  { 10, 1154318, 0, 1550153694 },
-  { 11, 1155038, 0, 1550225678 },
-  { 12, 1308737, 0, 1569582000 },
-  { 13, 1543939, 0, 1599069376 },
-  { 14, 1544659, 0, 1599069377 },
-  { 15, 1982800, 0, 1652727000 },
-  { 16, 1983520, 0, 1652813400 },
+  // Compressed testnet fork ladder.
+  // Migration basis height H0 fixed at 42126:
+  //   height(v) = H0 + 120 * (v - 1), for v in [2..16]
+  // This keeps the existing chain and enables early fee/RX testing.
+  { 2, 42246, 0, 1775000001 },
+  { 3, 42366, 0, 1775000002 },
+  { 4, 42486, 0, 1775000003 },
+  { 5, 42606, 0, 1775000004 },
+  { 6, 42726, 0, 1775000005 },
+  { 7, 42846, 0, 1775000006 },
+  { 8, 42966, 0, 1775000007 },
+  { 9, 43086, 0, 1775000008 },
+  { 10, 43206, 0, 1775000009 },
+  { 11, 43326, 0, 1775000010 },
+  { 12, 43446, 0, 1775000011 },
+  { 13, 43566, 0, 1775000012 },
+  { 14, 43686, 0, 1775000013 },
+  { 15, 43806, 0, 1775000014 },
+  { 16, 43926, 0, 1775000015 },
 };
 const size_t num_testnet_hard_forks = sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]);
-const uint64_t testnet_hard_fork_version_1_till = 624633;
+const uint64_t testnet_hard_fork_version_1_till = 42245;
 
 const hardfork_t stagenet_hard_forks[] = {
   // version 1 from the start of the blockchain
