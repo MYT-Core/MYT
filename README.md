@@ -1,10 +1,10 @@
 # MYT
 
-MYT is a Monero-based Proof-of-Work privacy chain currently in testnet hardening.
+MYT is a Monero-based Proof-of-Work privacy chain currently in mainnet hardening.
 
 ## Current Status
 - Custom chain parameters active
-- Local/public-style testnet validated (multi-node)
+- Local/public-style testnet & mainnet validated (multi-node)
 - Release artifacts signed and ready
 
 ## Binaries
