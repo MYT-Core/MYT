@@ -146,6 +146,19 @@ bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_
   }
 
   reward = penalized_reward;
+  if (version >= HF_VERSION_STRICT_EMISSION_CAP)
+  {
+    if (already_generated_coins >= MONEY_SUPPLY)
+    {
+      reward = 0;
+    }
+    else
+    {
+      const uint64_t remaining_supply = MONEY_SUPPLY - already_generated_coins;
+      if (reward > remaining_supply)
+        reward = remaining_supply;
+    }
+  }
   return true;
 }
 

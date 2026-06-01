@@ -268,4 +268,49 @@ namespace
     ASSERT_TRUE(ok);
     ASSERT_EQ(reward, kInitialReward / 4);
   }
+
+  TEST(block_reward_strict_cap, pre_hf17_keeps_nominal_reward)
+  {
+    constexpr uint64_t kInitialReward = UINT64_C(5000000000);   // 5 MYT (9 decimals)
+    constexpr size_t kBlockWeight = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 / 2;
+
+    uint64_t reward = 0;
+    const uint64_t already_generated_coins = MONEY_SUPPLY - 1;
+    const bool ok = get_block_reward(0, kBlockWeight, already_generated_coins, reward, 16, 1);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(reward, kInitialReward);
+  }
+
+  TEST(block_reward_strict_cap, hf17_clamps_to_remaining_supply)
+  {
+    constexpr size_t kBlockWeight = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 / 2;
+
+    uint64_t reward = 0;
+    const uint64_t already_generated_coins = MONEY_SUPPLY - 1;
+    const bool ok = get_block_reward(0, kBlockWeight, already_generated_coins, reward, HF_VERSION_STRICT_EMISSION_CAP, 1);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(reward, 1);
+  }
+
+  TEST(block_reward_strict_cap, hf17_returns_zero_at_cap)
+  {
+    constexpr size_t kBlockWeight = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 / 2;
+
+    uint64_t reward = 0;
+    const bool ok = get_block_reward(0, kBlockWeight, MONEY_SUPPLY, reward, HF_VERSION_STRICT_EMISSION_CAP, 1);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(reward, 0);
+  }
+
+  TEST(block_reward_strict_cap, hf17_leaves_reward_unchanged_when_enough_supply_remains)
+  {
+    constexpr uint64_t kInitialReward = UINT64_C(5000000000);   // 5 MYT (9 decimals)
+    constexpr size_t kBlockWeight = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 / 2;
+
+    uint64_t reward = 0;
+    const uint64_t already_generated_coins = MONEY_SUPPLY - kInitialReward - 1;
+    const bool ok = get_block_reward(0, kBlockWeight, already_generated_coins, reward, HF_VERSION_STRICT_EMISSION_CAP, 1);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(reward, kInitialReward);
+  }
 }

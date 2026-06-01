@@ -84,6 +84,7 @@ const hardfork_t mainnet_hard_forks[] = {
   {14,   30047, 0, 1775000013 },
   {15,   30623, 0, 1775000014 },
   {16,   31199, 0, 1775000015 },
+  {17,  180000, 0, 1775000016 },
 };
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 const uint64_t mainnet_hard_fork_version_1_till = 23134;
@@ -96,6 +97,7 @@ const hardfork_t testnet_hard_forks[] = {
   // Migration basis height H0 fixed at 42126:
   //   height(v) = H0 + 120 * (v - 1), for v in [2..16]
   // This keeps the existing chain and enables early fee/RX testing.
+  // v17 is set as a dedicated future activation point for emission-cap testing.
   { 2, 42246, 0, 1775000001 },
   { 3, 42366, 0, 1775000002 },
   { 4, 42486, 0, 1775000003 },
@@ -111,6 +113,7 @@ const hardfork_t testnet_hard_forks[] = {
   { 14, 43686, 0, 1775000013 },
   { 15, 43806, 0, 1775000014 },
   { 16, 43926, 0, 1775000015 },
+  { 17, 320000, 0, 1775000016 },
 };
 const size_t num_testnet_hard_forks = sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]);
 const uint64_t testnet_hard_fork_version_1_till = 42245;
