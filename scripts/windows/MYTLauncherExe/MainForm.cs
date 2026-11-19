@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace MYTLauncher;
@@ -26,6 +28,7 @@ public sealed class MainForm : Form
     {
         public string OnlineNodeIp = "";
         public string OnlineRpcPort = "";
+        public string OnlineTlsFingerprint = "";
         public string ExplorerUrl = "";
         public string WalletPath = "";
         public string MiningPriorityNode = "";
@@ -41,6 +44,7 @@ public sealed class MainForm : Form
 
     private readonly TextBox onlineNodeIp = new();
     private readonly TextBox onlineRpcPort = new();
+    private readonly TextBox onlineTlsFingerprint = new();
     private readonly TextBox explorerUrl = new();
     private readonly TextBox walletPath = new();
 
@@ -67,7 +71,7 @@ public sealed class MainForm : Form
         MaximizeBox = false;
         MinimizeBox = true;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(760, 600);
+        ClientSize = new Size(760, 632);
 
         binDir = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -80,7 +84,7 @@ public sealed class MainForm : Form
             {
                 OnlineNodeIp = "87.106.240.3",
                 OnlineRpcPort = "38089",
-                ExplorerUrl = "http://87.106.240.3:8081",
+                ExplorerUrl = "https://testnet-explorer.myt-coin.com/",
                 WalletPath = Path.Combine(user, "myt", "wallet-testnet"),
                 MiningPriorityNode = "87.106.240.3",
                 LocalDataDir = Path.Combine(programData, "myt", "local-node-testnet"),
@@ -94,7 +98,7 @@ public sealed class MainForm : Form
             {
                 OnlineNodeIp = "87.106.240.3",
                 OnlineRpcPort = "39089",
-                ExplorerUrl = "http://87.106.240.3:9081",
+                ExplorerUrl = "https://explorer.myt-coin.com/",
                 WalletPath = Path.Combine(user, "myt", "wallet-mainnet"),
                 MiningPriorityNode = "87.106.240.3,67.217.244.109",
                 LocalDataDir = Path.Combine(programData, "myt", "local-node-mainnet"),
@@ -130,14 +134,16 @@ public sealed class MainForm : Form
         var walletBox = new GroupBox
         {
             Text = "1) Wallet + Explorer (online node, no mining)",
-            Bounds = new Rectangle(GroupLeft, 70, GroupWidth, 160)
+            Bounds = new Rectangle(GroupLeft, 70, GroupWidth, 192)
         };
         Controls.Add(walletBox);
 
-        AddLabeledTextBox(walletBox, "Online Node IP", onlineNodeIp, 22, 16, 130);
+        AddLabeledTextBox(walletBox, "Online Node Host", onlineNodeIp, 22, 16, 130);
         AddLabeledTextBox(walletBox, "Online RPC Port", onlineRpcPort, 52, 16, 130);
         AddLabeledTextBox(walletBox, "Wallet Path", walletPath, 82, 16, 130);
         AddLabeledTextBox(walletBox, "Explorer URL", explorerUrl, 112, 16, 130);
+        AddLabeledTextBox(walletBox, "RPC TLS SHA-256", onlineTlsFingerprint, 142, 16, 130);
+        onlineTlsFingerprint.PlaceholderText = "Fingerprint supplied by your node operator";
 
         var bWallet = MakeButton("Open Wallet (Online)", ActionButtonX, 22, ActionButtonWidth, (_, _) => OpenWalletRemote());
         var bExplorer = MakeButton("Open Explorer", ActionButtonX, 66, ActionButtonWidth, (_, _) => OpenExplorer());
@@ -147,7 +153,7 @@ public sealed class MainForm : Form
         var miningBox = new GroupBox
         {
             Text = "2) Mining Mode (local node + wallet)",
-            Bounds = new Rectangle(GroupLeft, 238, GroupWidth, 140)
+            Bounds = new Rectangle(GroupLeft, 270, GroupWidth, 140)
         };
         Controls.Add(miningBox);
 
@@ -163,7 +169,7 @@ public sealed class MainForm : Form
         var publicBox = new GroupBox
         {
             Text = "3) Public Node (optional, advanced)",
-            Bounds = new Rectangle(GroupLeft, 386, GroupWidth, 150)
+            Bounds = new Rectangle(GroupLeft, 418, GroupWidth, 150)
         };
         Controls.Add(publicBox);
 
@@ -177,7 +183,7 @@ public sealed class MainForm : Form
         var bPublicHelp = MakeButton("Ports + Safety Help", ActionButtonX, 68, ActionButtonWidth, (_, _) => ShowPublicNodeHint());
         publicBox.Controls.AddRange([bPublic, bPublicHelp]);
 
-        logBox.Bounds = new Rectangle(16, 544, 728, 48);
+        logBox.Bounds = new Rectangle(16, 576, 728, 48);
         Controls.Add(logBox);
         Log("Launcher ready.");
     }
@@ -195,6 +201,7 @@ public sealed class MainForm : Form
         var p = profiles[mode];
         p.OnlineNodeIp = onlineNodeIp.Text.Trim();
         p.OnlineRpcPort = onlineRpcPort.Text.Trim();
+        p.OnlineTlsFingerprint = onlineTlsFingerprint.Text.Trim();
         p.ExplorerUrl = explorerUrl.Text.Trim();
         p.WalletPath = walletPath.Text.Trim();
         p.MiningPriorityNode = miningPriorityNode.Text.Trim();
@@ -211,6 +218,7 @@ public sealed class MainForm : Form
         var p = profiles[mode];
         onlineNodeIp.Text = p.OnlineNodeIp;
         onlineRpcPort.Text = p.OnlineRpcPort;
+        onlineTlsFingerprint.Text = p.OnlineTlsFingerprint;
         explorerUrl.Text = p.ExplorerUrl;
         walletPath.Text = p.WalletPath;
         miningPriorityNode.Text = p.MiningPriorityNode;
@@ -224,7 +232,7 @@ public sealed class MainForm : Form
 
     private static string GetModeName(NetworkMode mode) => mode == NetworkMode.Testnet ? "testnet" : "mainnet";
 
-    private static string GetChainArg(NetworkMode mode) => mode == NetworkMode.Testnet ? "--testnet " : "";
+    private static List<string> GetChainArgs(NetworkMode mode) => mode == NetworkMode.Testnet ? ["--testnet"] : [];
 
     private static int GetDefaultSeedP2PPort(NetworkMode mode) => mode == NetworkMode.Testnet ? 38080 : 39080;
 
@@ -257,74 +265,66 @@ public sealed class MainForm : Form
         if (!EnsureWalletDirectory())
             return;
 
-        var host = onlineNodeIp.Text.Trim();
-        var port = onlineRpcPort.Text.Trim();
-        if (!TryParsePort(port, out var portNum))
+        var host = onlineNodeIp.Text.Trim().Trim('[', ']');
+        if (Uri.CheckHostName(host) == UriHostNameType.Unknown ||
+            !TryParsePort(onlineRpcPort.Text.Trim(), out var port))
         {
-            MessageBox.Show("Online RPC Port is invalid.", "Input error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Enter a valid RPC hostname or IP address and port.", "Input error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        if (!CanConnectTcp(host, portNum, 2500, out var err))
+        var fingerprint = onlineTlsFingerprint.Text.Trim().Replace(":", "");
+        if (!Regex.IsMatch(fingerprint, "\\A[0-9a-fA-F]{64}\\z"))
         {
-            Log("Online node check failed: " + err);
-            MessageBox.Show(
-                "Online node is not reachable.\n\n" +
-                $"Tried: {host}:{port}\n" +
-                "Check VPS daemon/firewall and try again.",
-                "Online node unreachable",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
+            MessageBox.Show("Enter the verified SHA-256 TLS certificate fingerprint from your node operator.",
+                "RPC certificate required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        var chainArg = GetChainArg(activeMode);
-        var daemon = $"{host}:{port}";
-        var args = BuildWalletOpenOrCreateArgs(
-            walletPath.Text.Trim(),
-            $"{chainArg}--daemon-address {daemon} --trusted-daemon --daemon-ssl enabled --daemon-ssl-allow-any-cert");
+        if (!CanConnectTcp(host, port, 2500, out var error))
+        {
+            Log("Online node check failed: " + error);
+            MessageBox.Show("Online node is not reachable. Check the VPS daemon and firewall.",
+                "Online node unreachable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
 
-        StartCmd($"MYT Wallet ({GetModeName(activeMode)})", "myt-wallet-cli.exe", args);
-        Log("Online wallet opened. Mining is disabled in this mode.");
+        var args = GetChainArgs(activeMode);
+        args.AddRange(["--daemon-address", FormatEndpoint(host, port), "--untrusted-daemon",
+            "--daemon-ssl", "enabled", "--daemon-ssl-allowed-fingerprints", fingerprint]);
+        AddWalletFileArgs(args);
+        StartProgram("myt-wallet-cli.exe", args);
     }
 
-    private void OpenWalletLocal()
+    private bool OpenWalletLocal()
     {
         if (!EnsureWalletDirectory())
-            return;
+            return false;
 
-        var chainArg = GetChainArg(activeMode);
-        var localRpc = GetLocalRpcPort(activeMode);
-        var args = BuildWalletOpenOrCreateArgs(
-            walletPath.Text.Trim(),
-            $"{chainArg}--daemon-address 127.0.0.1:{localRpc} --trusted-daemon");
-
-        StartCmd($"MYT Wallet (Local {GetModeName(activeMode)})", "myt-wallet-cli.exe", args);
+        var args = GetChainArgs(activeMode);
+        args.AddRange(["--daemon-address", $"127.0.0.1:{GetLocalRpcPort(activeMode)}", "--trusted-daemon"]);
+        AddWalletFileArgs(args);
+        return StartProgram("myt-wallet-cli.exe", args);
     }
 
-    private void StartLocalNode()
+    private bool StartLocalNode()
     {
-        var chainArg = GetChainArg(activeMode);
-        var dd = localDataDir.Text.Trim();
-        Directory.CreateDirectory(dd);
+        if (!TryPriorityNodes(miningPriorityNode.Text, GetDefaultSeedP2PPort(activeMode), out var peers))
+            return false;
 
-        var localP2P = GetLocalP2PPort(activeMode);
-        var localRpc = GetLocalRpcPort(activeMode);
-        var addPriority = BuildPriorityNodesArg(miningPriorityNode.Text.Trim(), GetDefaultSeedP2PPort(activeMode));
-
-        var peerArgs = activeMode == NetworkMode.Mainnet
-            ? "--no-igd --out-peers 16 --in-peers 0 --hide-my-port --log-level 1"
-            : "--no-igd --out-peers 16 --in-peers 32 --log-level 1";
-
-        var args =
-            $"{chainArg}--data-dir \"{dd}\" " +
-            addPriority +
-            $"--p2p-bind-ip 127.0.0.1 --p2p-bind-port {localP2P} " +
-            $"--rpc-bind-ip 127.0.0.1 --rpc-bind-port {localRpc} " +
-            "--disable-dns-checkpoints --check-updates disabled " +
-            peerArgs;
-
-        StartCmd($"MYT Local Node ({GetModeName(activeMode)})", "mytd.exe", args);
+        var dataDir = localDataDir.Text.Trim();
+        Directory.CreateDirectory(dataDir);
+        var args = GetChainArgs(activeMode);
+        args.AddRange(["--data-dir", dataDir, "--p2p-bind-ip", "127.0.0.1",
+            "--p2p-bind-port", GetLocalP2PPort(activeMode).ToString(), "--rpc-bind-ip", "127.0.0.1",
+            "--rpc-bind-port", GetLocalRpcPort(activeMode).ToString(),
+            "--disable-dns-checkpoints", "--check-updates", "disabled", "--no-igd",
+            "--out-peers", "16", "--in-peers", activeMode == NetworkMode.Mainnet ? "0" : "32",
+            "--log-level", "1"]);
+        if (activeMode == NetworkMode.Mainnet)
+            args.Add("--hide-my-port");
+        args.AddRange(peers);
+        return StartProgram("mytd.exe", args);
     }
 
     private void StartMiningMode()
@@ -335,8 +335,8 @@ public sealed class MainForm : Form
             return;
         }
 
-        StartLocalNode();
-        OpenWalletLocal();
+        if (!StartLocalNode() || !OpenWalletLocal())
+            return;
 
         var cmd = $"start_mining {threads}";
         TryCopyToClipboard(cmd);
@@ -352,7 +352,7 @@ public sealed class MainForm : Form
 
     private void StartPublicNode()
     {
-        var chainArg = GetChainArg(activeMode);
+        var args = GetChainArgs(activeMode);
 
         var dd = publicDataDir.Text.Trim();
         var p2p = publicP2pPort.Text.Trim();
@@ -370,46 +370,50 @@ public sealed class MainForm : Form
             return;
         }
 
+        if (!TryPriorityNodes(publicPriorityNode.Text, GetDefaultSeedP2PPort(activeMode), out var peers))
+            return;
+
         Directory.CreateDirectory(dd);
-
-        var addPriority = BuildPriorityNodesArg(publicPriorityNode.Text.Trim(), GetDefaultSeedP2PPort(activeMode));
-
-        var args =
-            $"{chainArg}--data-dir \"{dd}\" " +
-            addPriority +
-            $"--p2p-bind-ip 0.0.0.0 --p2p-bind-port {p2p} " +
-            $"--rpc-bind-ip 0.0.0.0 --rpc-bind-port {rpc} --confirm-external-bind " +
-            "--public-node --restricted-rpc --non-interactive " +
-            "--disable-dns-checkpoints --check-updates disabled " +
-            "--no-igd --out-peers 32 --in-peers 64 --log-level 1";
-
-        StartCmd($"MYT Public Node ({GetModeName(activeMode)})", "mytd.exe", args);
+        args.AddRange(["--data-dir", dd, "--p2p-bind-ip", "0.0.0.0", "--p2p-bind-port", p2p,
+            "--rpc-bind-ip", "0.0.0.0", "--rpc-bind-port", rpc, "--confirm-external-bind",
+            "--public-node", "--restricted-rpc", "--non-interactive", "--disable-dns-checkpoints",
+            "--check-updates", "disabled", "--no-igd", "--out-peers", "32", "--in-peers", "64",
+            "--log-level", "1"]);
+        args.AddRange(peers);
+        StartProgram("mytd.exe", args);
     }
 
-    private static string BuildPriorityNodesArg(string value, int defaultPort)
+    private static string FormatEndpoint(string host, int port)
     {
-        var raw = value.Trim();
-        if (string.IsNullOrWhiteSpace(raw))
-            return "";
+        var bareHost = host.Trim('[', ']');
+        return Uri.CheckHostName(bareHost) == UriHostNameType.IPv6
+            ? $"[{bareHost}]:{port}" : $"{bareHost}:{port}";
+    }
 
-        var parts = raw.Split(new[] { ',', ';', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0)
-            return "";
-
-        var args = "";
+    private static bool TryPriorityNodes(string value, int defaultPort, out List<string> args)
+    {
+        args = [];
+        var parts = value.Split([',', ';', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
         foreach (var part in parts)
         {
-            var v = part.Trim();
-            if (string.IsNullOrWhiteSpace(v))
+            if (IPAddress.TryParse(part, out var ip))
+            {
+                args.AddRange(["--add-priority-node", FormatEndpoint(ip.ToString(), defaultPort)]);
                 continue;
-
-            if (!v.Contains(':'))
-                v = $"{v}:{defaultPort}";
-
-            args += $"--add-priority-node {v} ";
+            }
+            if (!Uri.TryCreate("tcp://" + part, UriKind.Absolute, out var endpoint) ||
+                endpoint.HostNameType is not (UriHostNameType.Dns or UriHostNameType.IPv4 or UriHostNameType.IPv6) ||
+                endpoint.UserInfo.Length > 0 || endpoint.AbsolutePath is not ("" or "/") ||
+                endpoint.Query.Length > 0 || endpoint.Fragment.Length > 0 || endpoint.Port == 0)
+            {
+                MessageBox.Show("Enter priority nodes as hostnames or IP addresses with optional ports.",
+                    "Invalid priority node", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            args.AddRange(["--add-priority-node", FormatEndpoint(endpoint.Host,
+                endpoint.Port < 0 ? defaultPort : endpoint.Port)]);
         }
-
-        return args;
+        return true;
     }
 
     private void CopyMiningCommand()
@@ -501,26 +505,37 @@ public sealed class MainForm : Form
             MessageBoxIcon.Warning);
     }
 
-    private void StartCmd(string title, string exeName, string args)
+    private bool StartProgram(string exeName, IEnumerable<string> args)
     {
         var exe = Path.Combine(binDir, exeName);
         if (!File.Exists(exe))
         {
             Log($"Cannot start. Missing: {exeName}");
-            return;
+            return false;
         }
 
-        var cmdLine = $"pushd \"{binDir}\" && title {title} && \"{exe}\" {args} && popd";
         var psi = new ProcessStartInfo
         {
-            FileName = "cmd.exe",
-            Arguments = "/k " + cmdLine,
-            WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            FileName = exe,
+            WorkingDirectory = binDir,
             UseShellExecute = false
         };
+        foreach (var argument in args)
+            psi.ArgumentList.Add(argument);
 
-        Process.Start(psi);
-        Log($"Started: {exeName} {args}");
+        try
+        {
+            using var process = Process.Start(psi);
+            if (process is null)
+                return false;
+            Log($"Started: {exeName}");
+            return true;
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            Log($"Could not start {exeName}: {exception.Message}");
+            return false;
+        }
     }
 
     private void Log(string msg)
@@ -528,13 +543,11 @@ public sealed class MainForm : Form
         logBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}{Environment.NewLine}");
     }
 
-    private static string BuildWalletOpenOrCreateArgs(string walletFilePath, string commonArgsPrefix)
+    private void AddWalletFileArgs(List<string> args)
     {
-        var wallet = walletFilePath.Trim();
-        var keys = wallet + ".keys";
-        var exists = File.Exists(wallet) && File.Exists(keys);
-        var mode = exists ? "--wallet-file" : "--generate-new-wallet";
-        return $"{commonArgsPrefix} {mode} \"{wallet}\"";
+        var wallet = walletPath.Text.Trim();
+        var exists = File.Exists(wallet) && File.Exists(wallet + ".keys");
+        args.AddRange([exists ? "--wallet-file" : "--generate-new-wallet", wallet]);
     }
 
     private bool EnsureWalletDirectory()

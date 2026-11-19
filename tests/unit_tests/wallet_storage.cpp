@@ -33,6 +33,7 @@
 
 #include "file_io_utils.h"
 #include "wallet/wallet2.h"
+#include "../core_tests/wallet_tools.h"
 #include "common/util.h"
 
 using namespace boost::filesystem;
@@ -594,4 +595,55 @@ TEST(wallet_keys_unlocker, first_not_locked)
         ASSERT_NE(w1_ks_encrypted_2, w1_ks_unencrypted);
         ASSERT_TRUE(verify_wallet_privkeys(w1));
     }
+}
+
+TEST(wallet_storage, retry_multisig_nonce_persistence)
+{
+    const path directory = temp_directory_path() / unique_path("myt-nonce-%%%%-%%%%");
+    ASSERT_TRUE(create_directory(directory));
+    struct cleanup
+    {
+        path directory;
+        ~cleanup() { boost::system::error_code ec; remove_all(directory, ec); }
+    } cleanup_directory{directory};
+    const path wallet_file = directory / "wallet";
+    const path blocked_cache = directory / "wallet.new";
+    epee::wipeable_string password;
+    {
+        tools::wallet2 wallet(cryptonote::TESTNET, 1, true);
+        wallet.generate(wallet_file.string(), password);
+        tools::wallet2::transfer_details transfer{};
+        transfer.m_tx.version = 2;
+        transfer.m_tx.vout.push_back(cryptonote::tx_out{
+            0, cryptonote::txout_to_key{wallet.get_account().get_keys().m_account_address.m_spend_public_key}});
+        transfer.m_multisig_k.push_back(rct::skGen());
+        auto &transfers = wallet_accessor_test::get_transfers(&wallet);
+        transfers.push_back(transfer);
+        wallet.store();
+
+        tools::wallet2::multisig_tx_set txs{};
+        txs.m_ptx.resize(1);
+        txs.m_ptx[0].construction_data.selected_transfers.push_back(0);
+        ASSERT_TRUE(create_directory(blocked_cache));
+        EXPECT_ANY_THROW(wallet_accessor_test::persist_multisig_nonce_erasure(wallet, txs));
+        ASSERT_TRUE(transfers[0].m_multisig_k.empty());
+
+        // The second call must not skip storage because the in-memory vector is empty.
+        EXPECT_ANY_THROW(wallet_accessor_test::persist_multisig_nonce_erasure(wallet, txs));
+        ASSERT_TRUE(remove(blocked_cache));
+        EXPECT_NO_THROW(wallet_accessor_test::persist_multisig_nonce_erasure(wallet, txs));
+    }
+    tools::wallet2 reopened(cryptonote::TESTNET, 1, true);
+    reopened.load(wallet_file.string(), password);
+    const auto &transfers = wallet_accessor_test::get_transfers(&reopened);
+    ASSERT_EQ(1, transfers.size());
+    EXPECT_TRUE(transfers[0].m_multisig_k.empty());
+}
+
+TEST(wallet_storage, multisig_nonce_persistence_requires_file)
+{
+    tools::wallet2 wallet(cryptonote::TESTNET, 1, true);
+    wallet.generate("", epee::wipeable_string());
+    tools::wallet2::multisig_tx_set txs{};
+    EXPECT_ANY_THROW(wallet_accessor_test::persist_multisig_nonce_erasure(wallet, txs));
 }
