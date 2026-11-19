@@ -1026,7 +1026,8 @@ namespace cryptonote
     const relay_category category = include_sensitive ? relay_category::all : relay_category::broadcasted;
     backlog.reserve(m_blockchain.get_txpool_tx_count(include_sensitive));
     m_blockchain.for_all_txpool_txes([&backlog, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
-      backlog.push_back({meta.weight, meta.fee, meta.receive_time - now});
+      const uint64_t age = now >= meta.receive_time ? now - meta.receive_time : 0;
+      backlog.push_back({meta.weight, meta.fee, age});
       return true;
     }, false, category);
   }
@@ -1549,7 +1550,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::fill_block_template(block &bl, size_t median_weight, uint64_t already_generated_coins, uint64_t next_block_height, size_t &total_weight, uint64_t &fee, uint64_t &expected_reward, uint8_t version)
+  bool tx_memory_pool::fill_block_template(block &bl, size_t median_weight, uint64_t already_generated_coins, uint64_t next_block_height, size_t &total_weight, uint64_t &fee, uint64_t &expected_reward, uint8_t version, bool include_sensitive)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1589,7 +1590,9 @@ namespace cryptonote
       }
       LOG_PRINT_L2("Considering " << sorted_it->get_right() << ", weight " << meta.weight << ", current block weight " << total_weight << "/" << max_total_weight << ", current coinbase " << print_money(best_coinbase) << ", relay method " << (unsigned)meta.get_relay_method());
 
-      if (!meta.matches(relay_category::legacy) && !(m_mine_stem_txes && meta.get_relay_method() == relay_method::stem))
+      const relay_category category = include_sensitive ? relay_category::legacy : relay_category::broadcasted;
+      const bool include_stem = include_sensitive && m_mine_stem_txes && meta.get_relay_method() == relay_method::stem;
+      if (!meta.matches(category) && !include_stem)
       {
         LOG_PRINT_L2("  tx relay method is " << (unsigned)meta.get_relay_method());
         continue;
