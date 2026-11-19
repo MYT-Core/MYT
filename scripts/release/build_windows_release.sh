@@ -44,12 +44,17 @@ cp "${BUILD_DIR}/bin/myt-wallet-cli.exe" "${BIN_DIR}/"
 cp "${BUILD_DIR}/bin/myt-wallet-rpc.exe" "${BIN_DIR}/"
 
 LAUNCHER_EXE="${SOURCE_DIR}/scripts/windows/MYTLauncherExe/publish/MYTLauncher.exe"
-if [[ -f "${LAUNCHER_EXE}" ]]; then
-  cp "${LAUNCHER_EXE}" "${BIN_DIR}/MYTLauncher.exe"
-  echo "Included launcher: ${LAUNCHER_EXE}"
-else
-  echo "Launcher not found at ${LAUNCHER_EXE} (skipping)."
+if [[ ! -f "${LAUNCHER_EXE}" ]]; then
+  echo "Missing launcher: ${LAUNCHER_EXE}"
+  echo "Build it first with scripts/windows/MYTLauncherExe/build_launcher.bat (.NET 8)."
+  exit 1
 fi
+if [[ "${LAUNCHER_EXE}" -ot "${SOURCE_DIR}/scripts/windows/MYTLauncherExe/Program.cs" ]]; then
+  echo "Launcher is older than its source; rebuild it before packaging."
+  exit 1
+fi
+cp "${LAUNCHER_EXE}" "${BIN_DIR}/MYTLauncher.exe"
+echo "Included launcher: ${LAUNCHER_EXE} ($(sha256sum "${LAUNCHER_EXE}" | cut -d' ' -f1))"
 
 cat > "${ARTIFACT_ROOT}/README.txt" <<README
 MYT ${VERSION} Windows x64 release artifacts.
@@ -58,7 +63,7 @@ Binaries:
 - mytd.exe
 - myt-wallet-cli.exe
 - myt-wallet-rpc.exe
-- MYTLauncher.exe (if available)
+- MYTLauncher.exe
 
 Verify integrity using SHA256SUMS.txt and signature file.
 README
