@@ -127,6 +127,8 @@ jobs:
       env:
         # The cross-compiled protobuf self-test cannot link for Apple targets; the real build still uses protobuf.
         USE_DEVICE_TREZOR_PROTOBUF_TEST: ${{ contains(matrix.toolchain.host, 'apple') && 'OFF' || 'ON' }}
+        # depends provides no libusb for Apple targets; Trezor builds without its USB transport there.
+        USE_DEVICE_TREZOR_LIBUSB: ${{ contains(matrix.toolchain.host, 'apple') && 'OFF' || 'ON' }}
       run: |
         ${{env.CCACHE_SETTINGS}}
         make depends target=${{ matrix.toolchain.host }} -j${{env.MAKE_JOB_COUNT}}
