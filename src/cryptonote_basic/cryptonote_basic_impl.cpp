@@ -36,6 +36,7 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <limits>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -104,11 +105,15 @@ bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_
   else
   {
     // Compatibility fallback for non-consensus callsites that do not pass height.
+    // INITIAL_REWARD_ATOMIC * HALVING_INTERVAL (~1.05e16) fits in 64 bits, so no
+    // 128-bit arithmetic is needed (and 32-bit targets have no __uint128_t).
+    static_assert(INITIAL_REWARD_ATOMIC <= std::numeric_limits<uint64_t>::max() / HALVING_INTERVAL,
+                  "era emission must fit in uint64_t");
     uint64_t staged_reward = INITIAL_REWARD_ATOMIC;
-    __uint128_t emitted = static_cast<__uint128_t>(already_generated_coins);
+    uint64_t emitted = already_generated_coins;
     while (staged_reward > 0)
     {
-      const __uint128_t era_emission = static_cast<__uint128_t>(staged_reward) * HALVING_INTERVAL;
+      const uint64_t era_emission = staged_reward * HALVING_INTERVAL;
       if (emitted < era_emission)
         break;
       emitted -= era_emission;

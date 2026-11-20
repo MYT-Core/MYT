@@ -34,6 +34,8 @@ jobs:
     env:
       # Homebrew protobuf links abseil targets that CMake try_compile cannot import; the real build still uses protobuf.
       USE_DEVICE_TREZOR_PROTOBUF_TEST: OFF
+      # Homebrew libusb is not picked up by CheckTrezor; Trezor builds without its USB transport here.
+      USE_DEVICE_TREZOR_LIBUSB: OFF
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
