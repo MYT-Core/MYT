@@ -32,6 +32,8 @@ jobs:
     name: 'macOS (brew)'
     runs-on: macOS-latest
     env:
+      # Homebrew protobuf links abseil targets that CMake try_compile cannot import; the real build still uses protobuf.
+      USE_DEVICE_TREZOR_PROTOBUF_TEST: OFF
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -74,7 +76,8 @@ jobs:
       - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with:
           update: true
-          install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound mingw-w64-x86_64-rust git pkg-config
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-toolchain make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ccache mingw-w64-ucrt-x86_64-boost mingw-w64-ucrt-x86_64-openssl mingw-w64-ucrt-x86_64-zeromq mingw-w64-ucrt-x86_64-libsodium mingw-w64-ucrt-x86_64-hidapi mingw-w64-ucrt-x86_64-protobuf mingw-w64-ucrt-x86_64-libusb mingw-w64-ucrt-x86_64-unbound mingw-w64-ucrt-x86_64-rust git pkg-config
       - uses: ./.github/actions/set-make-job-count
       - name: build
         run: |
@@ -102,10 +105,10 @@ jobs:
 
   build-debian:
     # Oldest supported Debian version
-    name: 'Debian 11'
+    name: 'Debian 12'
     runs-on: ubuntu-latest
     container:
-      image: debian:11
+      image: debian:12
       env:
         DEBIAN_FRONTEND: noninteractive
     steps:
