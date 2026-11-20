@@ -130,7 +130,7 @@ bool generate_random_blocks(cryptonote::core& core, FuzzedDataProvider& provider
 
     // Prepare the genesis block (initial base block) in the block chains
     cryptonote::block genesis_block;
-    cryptonote::generate_genesis_block(genesis_block, config::GENESIS_TX, config::GENESIS_NONCE);
+    cryptonote::generate_genesis_block(genesis_block, config::GENESIS_TX, config::GENESIS_NONCE, config::GENESIS_TIMESTAMP);
     cached_blocks.push_back(genesis_block);
 
     // Setup initial values
