@@ -944,7 +944,7 @@ bool gen_trezor_base::generate(std::vector<test_event_entry>& events)
 
   cryptonote::block blk_gen;
   std::vector<size_t> block_weights;
-  generate_genesis_block(blk_gen, get_config(m_network_type).GENESIS_TX, get_config(m_network_type).GENESIS_NONCE);
+  generate_genesis_block(blk_gen, get_config(m_network_type).GENESIS_TX, get_config(m_network_type).GENESIS_NONCE, get_config(m_network_type).GENESIS_TIMESTAMP);
   events.push_back(blk_gen);
   uint64_t rew = 0;
   cryptonote::get_block_reward(0,  get_transaction_weight(blk_gen.miner_tx), 0, rew, 1);

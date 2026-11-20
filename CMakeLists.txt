@@ -53,6 +53,13 @@ endif()
 if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
 endif()
+
+# Homebrew ships Boost versions newer than CMake's legacy FindBoost module knows
+# (it then misses compiled components such as thread). Native macOS builds use
+# Boost's own package configuration instead; depends builds are unaffected.
+if(APPLE AND NOT DEPENDS AND POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
 include(FindPythonInterp)
 
 if (IOS)

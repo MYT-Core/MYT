@@ -26,7 +26,7 @@ jobs:
   build-cross:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:20.04
+      image: ${{ matrix.toolchain.image || 'ubuntu:20.04' }}
       env:
         DEBIAN_FRONTEND: noninteractive
         CCACHE_TEMPDIR: /tmp/.ccache-temp
@@ -49,6 +49,8 @@ jobs:
           - name: "Win64"
             host: "x86_64-w64-mingw32"
             rust_host: "x86_64-pc-windows-gnu"
+            # binutils 2.34 (Ubuntu 20.04) segfaults when linking with the depends OpenSSL 3
+            image: "ubuntu:22.04"
             packages: "g++-mingw-w64-x86-64"
           - name: "x86_64 Linux"
             host: "x86_64-unknown-linux-gnu"
@@ -122,6 +124,11 @@ jobs:
         echo "/usr/lib/llvm-18/bin/" >> $GITHUB_PATH
     - uses: ./.github/actions/set-make-job-count
     - name: build
+      env:
+        # The cross-compiled protobuf self-test cannot link for Apple targets; the real build still uses protobuf.
+        USE_DEVICE_TREZOR_PROTOBUF_TEST: ${{ contains(matrix.toolchain.host, 'apple') && 'OFF' || 'ON' }}
+        # depends provides no libusb for Apple targets; Trezor builds without its USB transport there.
+        USE_DEVICE_TREZOR_LIBUSB: ${{ contains(matrix.toolchain.host, 'apple') && 'OFF' || 'ON' }}
       run: |
         ${{env.CCACHE_SETTINGS}}
         make depends target=${{ matrix.toolchain.host }} -j${{env.MAKE_JOB_COUNT}}
